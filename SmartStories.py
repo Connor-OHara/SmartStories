@@ -9,6 +9,8 @@ import shutil
 import cv2
 import numpy as np
 import aiohttp
+from pathlib import Path
+from gtts import gTTS
 
 client = OpenAI()
 
@@ -24,6 +26,11 @@ def download_image(image_url, folder_path, image_name):
         image_file.write(response.content)
 
     return image_path
+
+
+def text_to_speech(text, output_path):
+    tts = gTTS(text=text, lang='en')
+    tts.save(output_path)
 
 
 def calculate_average_color(image_path):
@@ -131,8 +138,16 @@ def main():
             print("Error during Image Generation:", e.http_status, e.error)
 
 
+    # create a .wav output for each of the story paragraphs
+    sound_folder = Path(__file__).parent / "sound"
+    shutil.rmtree(sound_folder, ignore_errors=True)
+    sound_folder.mkdir(exist_ok=True)
 
-
+    for index, paragraph in enumerate(paragraphs):
+        speech_file_path = sound_folder / f"speech_{index}.wav"
+        print(f"Generating speech for Paragraph {index + 1}...")
+        text_to_speech(paragraph, speech_file_path)
+        print(f"Speech generated and saved at: {speech_file_path}")
 
 
 
