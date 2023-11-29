@@ -10,6 +10,8 @@ Hardware Instructions:
   
 
 Software Instructions:
+Python Virtual Environment Setup:
+https://stackoverflow.com/questions/75602063/pip-install-r-requirements-txt-is-failing-this-environment-is-externally-mana/75696359#75696359
 
 Setup:
 
