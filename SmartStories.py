@@ -1,6 +1,5 @@
 # Configure local API key using https://www.datacamp.com/tutorial/converting-speech-to-text-with-the-openAI-whisper-API
 
-import asyncio
 from openai import OpenAI
 import openai
 import os
@@ -8,11 +7,11 @@ import requests
 import shutil
 import cv2
 import numpy as np
-import aiohttp
 from pathlib import Path
 from gtts import gTTS
 
 client = OpenAI()
+
 
 
 def download_image(image_url, folder_path, image_name):
@@ -40,24 +39,63 @@ def calculate_average_color(image_path):
     # Convert the image from BGR to RGB
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Split the image into 8x8 grid
+    # Split the image into 4x4 grid
     height, width, _ = image.shape
-    octant_size = height // 2, width // 2
+    chunk_height, chunk_width = height // 4, width // 4
 
-    # Calculate average color for each octant
-    average_colors = []
-    for i in range(2):
-        for j in range(2):
-            octant = image[i * octant_size[0]: (i + 1) * octant_size[0], j * octant_size[1]: (j + 1) * octant_size[1],
-                     :]
-            average_color = np.mean(octant, axis=(0, 1))
-            average_colors.append(average_color)
+    # Calculate average color and store with chunk index
+    average_colors_with_index = []
 
-    return average_colors
+    # Top edge
+    for i in range(4):
+        chunk = image[0:chunk_height, i * chunk_width: (i + 1) * chunk_width, :]
+        average_color = np.mean(chunk, axis=(0, 1))
+        average_colors_with_index.append((average_color, i))
+
+    # Right edge
+    for i in range(1, 4):
+        chunk = image[i * chunk_height: (i + 1) * chunk_height, -chunk_width:, :]
+        average_color = np.mean(chunk, axis=(0, 1))
+        average_colors_with_index.append((average_color, i + 3))
+
+    # Bottom edge
+    for i in range(2, -1, -1):
+        chunk = image[-chunk_height:, i * chunk_width: (i + 1) * chunk_width, :]
+        average_color = np.mean(chunk, axis=(0, 1))
+        if (i == 2):
+            average_colors_with_index.append((average_color, i + 5))
+        elif (i == 1):
+            average_colors_with_index.append((average_color, i + 7))
+        elif (i == 0):
+            average_colors_with_index.append((average_color, i + 9))
+
+            # Left edge
+    for i in range(2, 0, -1):
+        chunk = image[i * chunk_height: (i + 1) * chunk_height, 0:chunk_width, :]
+        average_color = np.mean(chunk, axis=(0, 1))
+        if (i == 2):
+            average_colors_with_index.append((average_color, i + 8))
+        elif (i == 1):
+            average_colors_with_index.append((average_color, i + 10))
+
+    return average_colors_with_index
 
 
 
 
+
+
+
+
+def save_color_values(folder_path, index, color_values):
+    colorvalues_folder = os.path.join(folder_path, "colorvalues")
+    os.makedirs(colorvalues_folder, exist_ok=True)
+
+    file_path = os.path.join(colorvalues_folder, f"color_values_{index}.txt")
+    with open(file_path, 'w') as file:
+        for color in color_values:
+            file.write(','.join(map(str, color)) + '\n')
+    print("Color values saved to:", file_path)
 
 
 def main():
@@ -133,6 +171,9 @@ def main():
             average_colors = calculate_average_color(image_path)
             print("Average Color Values for Octants:", average_colors)
             image_octants.append(average_colors)
+
+            # Save each color value to a separate text file
+            save_color_values(folder_path, index, average_colors)
 
         except openai.OpenAIError as e:
             print("Error during Image Generation:", e.http_status, e.error)
