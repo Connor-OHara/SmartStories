@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 from gtts import gTTS
 
-client = OpenAI()
+client = OpenAI(api_key='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')
 
 
 
@@ -143,6 +143,12 @@ def main():
     image_urls = []
     image_octants = []
 
+
+    # create a .wav output for each of the story paragraphs
+    sound_folder = Path(__file__).parent / "sound"
+    shutil.rmtree(sound_folder, ignore_errors=True)
+    sound_folder.mkdir(exist_ok=True)
+
     # Iterate through paragraph chunks and generate images using Dal-E
     for index, chunk in enumerate(paragraph_chunks):
         combined_paragraphs = '\n\n'.join(chunk)
@@ -175,20 +181,19 @@ def main():
             # Save each color value to a separate text file
             save_color_values(folder_path, index, average_colors)
 
+            speech_file_path = sound_folder / f"speech_{index}.wav"
+            print(f"Generating speech for Paragraph {index + 1}...")
+            text_to_speech(combined_paragraphs, speech_file_path)
+            print(f"Speech generated and saved at: {speech_file_path}")
+
         except openai.OpenAIError as e:
             print("Error during Image Generation:", e.http_status, e.error)
 
 
-    # create a .wav output for each of the story paragraphs
-    sound_folder = Path(__file__).parent / "sound"
-    shutil.rmtree(sound_folder, ignore_errors=True)
-    sound_folder.mkdir(exist_ok=True)
 
-    for index, paragraph in enumerate(paragraphs):
-        speech_file_path = sound_folder / f"speech_{index}.wav"
-        print(f"Generating speech for Paragraph {index + 1}...")
-        text_to_speech(paragraph, speech_file_path)
-        print(f"Speech generated and saved at: {speech_file_path}")
+
+    #for index, paragraph in enumerate(paragraph_chunks):
+
 
 
 
