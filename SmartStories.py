@@ -9,10 +9,17 @@ import cv2
 import numpy as np
 from pathlib import Path
 from gtts import gTTS
+import subprocess
+import time
 
-client = OpenAI(api_key='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')
+client = OpenAI(api_key='ENTER API KEY')
 
-
+def is_process_running(process_name):
+    try:
+        result = subprocess.run(['pgrep', process_name], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return bool(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return False
 
 def download_image(image_url, folder_path, image_name):
     # Create the folder if it doesn't exist
@@ -28,7 +35,7 @@ def download_image(image_url, folder_path, image_name):
 
 
 def text_to_speech(text, output_path):
-    tts = gTTS(text=text, lang='en')
+    tts = gTTS(text=text, lang='en', tld='com.au')
     tts.save(output_path)
 
 
@@ -93,18 +100,57 @@ def save_color_values(folder_path, index, color_values):
 
     file_path = os.path.join(colorvalues_folder, f"color_values_{index}.txt")
     with open(file_path, 'w') as file:
-        for color in color_values:
-            file.write(','.join(map(str, color)) + '\n')
+        for i, color in enumerate(color_values):
+            # Convert RGB values to integers
+            color_integers = [int(value) for value in color[0]]
+            # Include the RGB values before the index (0-11)
+            file.write(','.join(map(str, color_integers)) + f',{i}\n')
     print("Color values saved to:", file_path)
 
 
+
+def kill_process(process_name):
+    try:
+        pid = subprocess.check_output(['pgrep', process_name], text=True).strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Error finding the process {process_name}: {e}")
+        return
+
+    if not pid:
+        print(f"No process with the name {process_name} found.")
+        return
+
+    try:
+        subprocess.check_call(['pkill', process_name])
+        print(f"The process {process_name} has been killed.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error killing the process {process_name}: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+
 def main():
+    # Moved to CPP file so there is a nicer transisition to story pictures
+#    try:
+#        # start animation
+#        subprocess.run("eog --fullscreen waitingAnimation.gif &", shell=True, check=True)
+#    except subprocess.CalledProcessError as e:
+#        print(f"Error starting animation: {e}")
+#        print("The 'waitAnim' executable encountered an error. Continuing without animation.")
+#    except FileNotFoundError:
+#        print("Error: The 'waitAnim' executable was not found. Continuing without animation.")
+#    except Exception as e:
+#        print(f"An unexpected error occurred: {e}")
+#        print("Exiting or continuing as appropriate.")
 
     # Clear out the existing "images" folder
     shutil.rmtree("images", ignore_errors=True)
 
     # process the audio file stored as below
-    audio_file = open("samples/sampleButterflies.wav", "rb")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    controller_path = os.path.join(script_dir, "sample/controllerSample.wav")
+    audio_file = open(controller_path, "rb")
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file
@@ -194,6 +240,52 @@ def main():
 
     #for index, paragraph in enumerate(paragraph_chunks):
 
+    #clear out sample dir for next run.
+    sound_folder = Path(__file__).parent / "sample"
+    shutil.rmtree(sound_folder, ignore_errors=True)
+    sound_folder.mkdir(exist_ok=True)
+
+    # Stop the controller
+    kill_process('Controller')
+
+    # Stop the animation
+    #kill_process('eog')
+
+    try:
+        # Get the current working directory
+        current_directory = os.getcwd()
+
+        # Specify the path to the compiled C++ executable
+        cpp_executable = os.path.join(current_directory, 'Controller')
+
+
+        cpp_args = ['-S', 'F']
+
+        # Run the C++ code as a separate process
+        cpp_process = subprocess.Popen([cpp_executable] + cpp_args)
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error starting Controller: {e}")
+        print("The 'Controller' executable encountered an error. Cannot Start New Controller.")
+    except FileNotFoundError:
+        print("Error: The 'Controller' executable was not found. Cannot Start New Controller.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        print("Exiting or continuing as appropriate.")
+
+    # Sleep for a while to allow the 'Controller' process to start
+    time.sleep(5)
+
+    # Check if the 'Controller' process is running
+    if is_process_running('Controller'):
+        print("The 'Controller' process is running.")
+    else:
+        print("The 'Controller' process is not running.")
+
+
+
+    #done the controller is now presenting the data from above
+    #the ISR in the controller being triggered will run this script again
 
 
 
