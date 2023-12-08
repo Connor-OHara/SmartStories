@@ -9,10 +9,17 @@ import cv2
 import numpy as np
 from pathlib import Path
 from gtts import gTTS
+import subprocess
+import time
 
-client = OpenAI(api_key='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')
+client = OpenAI(api_key='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')
 
-
+def is_process_running(process_name):
+    try:
+        result = subprocess.run(['pgrep', process_name], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return bool(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return False
 
 def download_image(image_url, folder_path, image_name):
     # Create the folder if it doesn't exist
@@ -98,13 +105,47 @@ def save_color_values(folder_path, index, color_values):
     print("Color values saved to:", file_path)
 
 
+def kill_process(process_name):
+    try:
+        pid = subprocess.check_output(['pgrep', process_name], text=True).strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Error finding the process {process_name}: {e}")
+        return
+
+    if not pid:
+        print(f"No process with the name {process_name} found.")
+        return
+
+    try:
+        subprocess.check_call(['pkill', process_name])
+        print(f"The process {process_name} has been killed.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error killing the process {process_name}: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+
 def main():
+    try:
+        # start animation
+        subprocess.run(["waitAnim"])
+    except subprocess.CalledProcessError as e:
+        print(f"Error starting animation: {e}")
+        print("The 'waitAnim' executable encountered an error. Continuing without animation.")
+    except FileNotFoundError:
+        print("Error: The 'waitAnim' executable was not found. Continuing without animation.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        print("Exiting or continuing as appropriate.")
 
     # Clear out the existing "images" folder
     shutil.rmtree("images", ignore_errors=True)
 
     # process the audio file stored as below
-    audio_file = open("samples/sampleButterflies.wav", "rb")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    controller_path = os.path.join(script_dir, "sample/controllerSample.wav")
+    audio_file = open(controller_path, "rb")
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
         file=audio_file
@@ -194,6 +235,53 @@ def main():
 
     #for index, paragraph in enumerate(paragraph_chunks):
 
+    #clear out sample dir for next run.
+    sound_folder = Path(__file__).parent / "sample"
+    shutil.rmtree(sound_folder, ignore_errors=True)
+    sound_folder.mkdir(exist_ok=True)
+
+    # Stop the controller
+    kill_process('Controller')
+
+    # Stop the animation
+    #kill_process('waitAnim')
+
+
+    # try:
+    #     # Get the current working directory
+    #     current_directory = os.getcwd()
+    #
+    #     # Specify the path to the compiled C++ executable
+    #     cpp_executable = os.path.join(current_directory, 'Controller')
+    #
+    #
+    #     cpp_args = ['-S', 'F']
+    #
+    #     # Run the C++ code as a separate process
+    #     cpp_process = subprocess.Popen([cpp_executable] + cpp_args)
+    #
+    # except subprocess.CalledProcessError as e:
+    #     print(f"Error starting Controller: {e}")
+    #     print("The 'Controller' executable encountered an error. Cannot Start New Controller.")
+    # except FileNotFoundError:
+    #     print("Error: The 'Controller' executable was not found. Cannot Start New Controller.")
+    # except Exception as e:
+    #     print(f"An unexpected error occurred: {e}")
+    #     print("Exiting or continuing as appropriate.")
+
+    # # Sleep for a while to allow the 'Controller' process to start
+    # time.sleep(5)
+    #
+    # # Check if the 'Controller' process is running
+    # if is_process_running('Controller'):
+    #     print("The 'Controller' process is running.")
+    # else:
+    #     print("The 'Controller' process is not running.")
+
+
+
+    #done the controller is now presenting the data from above
+    #the ISR in the controller being triggered will run this script again
 
 
 
